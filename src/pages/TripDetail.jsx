@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { databases, DATABASE_ID, TRIPS_ID, DOCUMENTS_ID } from '../lib/appwrite';
 import { Query } from 'appwrite';
 import DocumentUpload from '../components/DocumentUpload';
+import TripInterest from '../components/TripInterest';
 
 const DIFFICULTY_LABELS = { easy: 'Easy', moderate: 'Moderate', hard: 'Hard' };
 
@@ -134,6 +135,8 @@ export default function TripDetail() {
           <p className="detail-notes">{trip.notes}</p>
         </div>
       )}
+
+      <TripInterest tripId={id} />
 
       <div className="detail-section">
         <h2 className="section-title">Documents</h2>

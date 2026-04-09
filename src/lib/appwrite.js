@@ -13,3 +13,5 @@ export const BUCKET_ID = import.meta.env.VITE_APPWRITE_BUCKET_ID;
 export const TRIPS_ID = import.meta.env.VITE_APPWRITE_TRIPS_COLLECTION_ID;
 export const DOCUMENTS_ID = import.meta.env.VITE_APPWRITE_DOCUMENTS_COLLECTION_ID;
 export const AVAILABILITY_ID = import.meta.env.VITE_APPWRITE_AVAILABILITY_COLLECTION_ID;
+export const TRIP_INTEREST_ID = import.meta.env.VITE_APPWRITE_TRIP_INTEREST_COLLECTION_ID;
+export const PEOPLE_ID = import.meta.env.VITE_APPWRITE_PEOPLE_COLLECTION_ID;

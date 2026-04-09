@@ -4,20 +4,58 @@ import { databases, DATABASE_ID, AVAILABILITY_ID } from '../lib/appwrite';
 
 const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function formatWeekend(isoDate) {
-  return new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+function isoFromDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function CalendarMonth({ year, month, weekendSet, byWeekend, personName, onToggle }) {
+// Map any date that belongs to a bundle → the Saturday ISO (the bundle key).
+// Standard bundle: Saturday + Sunday.
+// Extended bundle: if Saturday is July 4, also include Friday July 3.
+function buildBundleMap(saturdays) {
+  const map = {};
+  for (const satIso of saturdays) {
+    const sat = new Date(satIso + 'T00:00:00');
+
+    map[satIso] = satIso; // Saturday
+
+    const sun = new Date(sat);
+    sun.setDate(sun.getDate() + 1);
+    map[isoFromDate(sun)] = satIso; // Sunday
+
+    // Include Friday July 3 when Saturday is July 4
+    const fri = new Date(sat);
+    fri.setDate(fri.getDate() - 1);
+    const friIso = isoFromDate(fri);
+    if (friIso.slice(5, 10) === '07-03') {
+      map[friIso] = satIso;
+    }
+  }
+  return map;
+}
+
+function formatWeekend(satIso) {
+  const sat = new Date(satIso + 'T00:00:00');
+  const sun = new Date(sat);
+  sun.setDate(sun.getDate() + 1);
+
+  const fri = new Date(sat);
+  fri.setDate(fri.getDate() - 1);
+  const isJul3Weekend = fri.getMonth() === 6 && fri.getDate() === 3;
+
+  if (isJul3Weekend) {
+    const friStr = fri.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${friStr}–${sun.getDate()}, ${sat.getFullYear()}`;
+  }
+
+  const satStr = sat.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${satStr}–${sun.getDate()}, ${sat.getFullYear()}`;
+}
+
+function CalendarMonth({ year, month, bundleMap, byWeekend, personName, onToggle }) {
   const title = new Date(year, month).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const firstDayOfWeek = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // Build flat cell array: nulls for leading empty cells, then day numbers
   const cells = Array(firstDayOfWeek).fill(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
@@ -31,11 +69,12 @@ function CalendarMonth({ year, month, weekendSet, byWeekend, personName, onToggl
         {cells.map((day, i) => {
           if (day === null) return <div key={`empty-${i}`} className="cal-cell cal-cell-empty" />;
 
-          const isSat = (firstDayOfWeek + day - 1) % 7 === 6;
           const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          const isInteractive = isSat && weekendSet.has(iso);
+          const satKey = bundleMap[iso];
+          const isSat = (firstDayOfWeek + day - 1) % 7 === 6;
 
-          if (!isInteractive) {
+          if (!satKey) {
+            // Saturdays not part of any tracked bundle get a muted style
             return (
               <div key={day} className={`cal-cell${isSat ? ' cal-cell-sat-inactive' : ''}`}>
                 {day}
@@ -43,20 +82,21 @@ function CalendarMonth({ year, month, weekendSet, byWeekend, personName, onToggl
             );
           }
 
-          const rows = byWeekend[iso] || [];
+          const rows = byWeekend[satKey] || [];
           const count = rows.length;
           const isChecked = personName.trim() && rows.some((r) => r.personName === personName.trim());
           const isBest = count >= 3;
+          const isSaturdayCell = iso === satKey;
 
           return (
             <button
               key={day}
               className={`cal-cell cal-cell-sat${isChecked ? ' cal-checked' : ''}${isBest ? ' cal-best' : ''}`}
-              onClick={() => onToggle(iso, isChecked, rows)}
-              title={rows.length ? rows.map((r) => r.personName).join(', ') : 'Click to mark yourself free'}
+              onClick={() => onToggle(satKey, isChecked, rows)}
+              title={count ? rows.map((r) => r.personName).join(', ') : 'Click to mark yourself free'}
             >
               <span className="cal-day-num">{day}</span>
-              {count > 0 && <span className="cal-count">{count}</span>}
+              {isSaturdayCell && count > 0 && <span className="cal-count">{count}</span>}
             </button>
           );
         })}
@@ -69,23 +109,20 @@ export default function CalendarView({ weekends, allRows, personName, onChange }
   const [toggling, setToggling] = useState(null);
   const [error, setError] = useState(null);
 
-  // Build lookup: iso date → array of availability rows
   const byWeekend = {};
   for (const row of allRows) {
     if (!byWeekend[row.weekendStart]) byWeekend[row.weekendStart] = [];
     byWeekend[row.weekendStart].push(row);
   }
 
-  const weekendSet = new Set(weekends);
+  const bundleMap = buildBundleMap(weekends);
 
-  // Best weekends: top 3 by count
   const ranked = [...weekends]
     .map((w) => ({ weekend: w, count: (byWeekend[w] || []).length }))
     .filter((x) => x.count > 0)
     .sort((a, b) => b.count - a.count)
     .slice(0, 3);
 
-  // Compute months to display: from current month through month of last weekend
   const today = new Date();
   const lastWeekend = weekends[weekends.length - 1];
   const endDate = lastWeekend ? new Date(lastWeekend + 'T00:00:00') : today;
@@ -96,19 +133,19 @@ export default function CalendarView({ weekends, allRows, personName, onChange }
     cur.setMonth(cur.getMonth() + 1);
   }
 
-  async function handleToggle(iso, isChecked, rows) {
+  async function handleToggle(satKey, isChecked, rows) {
     if (!personName.trim()) {
       alert('Enter your name first.');
       return;
     }
     if (toggling) return;
-    setToggling(iso);
+    setToggling(satKey);
     setError(null);
     try {
       if (!isChecked) {
         const doc = await databases.createDocument(DATABASE_ID, AVAILABILITY_ID, ID.unique(), {
           personName: personName.trim(),
-          weekendStart: iso,
+          weekendStart: satKey,
         });
         onChange((prev) => [...prev, doc]);
       } else {
@@ -149,7 +186,7 @@ export default function CalendarView({ weekends, allRows, personName, onChange }
       <div className="cal-legend">
         <span className="legend-item"><span className="legend-swatch legend-available" /> You're free</span>
         <span className="legend-item"><span className="legend-swatch legend-best" /> 3+ people free</span>
-        <span className="legend-item"><span className="legend-swatch legend-sat" /> Weekend (click to toggle)</span>
+        <span className="legend-item"><span className="legend-swatch legend-sat" /> Sat–Sun bundle (click either)</span>
       </div>
 
       <div className="cal-months">
@@ -158,7 +195,7 @@ export default function CalendarView({ weekends, allRows, personName, onChange }
             key={`${year}-${month}`}
             year={year}
             month={month}
-            weekendSet={weekendSet}
+            bundleMap={bundleMap}
             byWeekend={byWeekend}
             personName={personName}
             onToggle={handleToggle}

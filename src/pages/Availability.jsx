@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { databases, DATABASE_ID, AVAILABILITY_ID } from '../lib/appwrite';
 import CalendarView from '../components/CalendarView';
+import NameSelector from '../components/NameSelector';
 
 function getUpcomingSaturdays(count = 26) {
   const saturdays = [];
@@ -31,9 +32,9 @@ export default function Availability() {
       .finally(() => setLoading(false));
   }, []);
 
-  function handleNameChange(e) {
-    setPersonName(e.target.value);
-    localStorage.setItem('bp_name', e.target.value);
+  function handleNameChange(name) {
+    setPersonName(name);
+    localStorage.setItem('bp_name', name);
   }
 
   return (
@@ -43,15 +44,8 @@ export default function Availability() {
       </div>
 
       <div className="name-bar">
-        <label htmlFor="personName">Your name:</label>
-        <input
-          id="personName"
-          type="text"
-          value={personName}
-          onChange={handleNameChange}
-          placeholder="Enter your name to check in"
-          className="name-input"
-        />
+        <label>Your name:</label>
+        <NameSelector value={personName} onChange={handleNameChange} />
       </div>
 
       {loading ? (
