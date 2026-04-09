@@ -71,7 +71,7 @@ function formatWeekend(satIso) {
   return `${satStr}–${sun.getDate()}, ${sat.getFullYear()}`;
 }
 
-function CalendarMonth({ year, month, bundleMap, byWeekend, personName, busyWeekends, onToggle }) {
+function CalendarMonth({ year, month, bundleMap, byWeekend, personName, busyWeekends, tripsByWeekend, onToggle }) {
   const title = new Date(year, month).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const firstDayOfWeek = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -109,6 +109,17 @@ function CalendarMonth({ year, month, bundleMap, byWeekend, personName, busyWeek
           const isBest = count >= 3;
           const isSaturdayCell = iso === satKey;
 
+          const tripNames = tripsByWeekend[satKey] || [];
+          let titleText;
+          if (tripNames.length) {
+            const availNames = count ? rows.map((r) => r.personName).join(', ') : '';
+            titleText = tripNames.join(', ') + (availNames ? '\n' + availNames : '');
+          } else if (count) {
+            titleText = rows.map((r) => r.personName).join(', ');
+          } else {
+            titleText = 'Click to mark yourself free';
+          }
+
           // Build class list: busy > checked > unavail > default
           let stateClass = '';
           if (isBusy) {
@@ -124,7 +135,7 @@ function CalendarMonth({ year, month, bundleMap, byWeekend, personName, busyWeek
               key={day}
               className={`cal-cell cal-cell-sat${stateClass}${isBest ? ' cal-best' : ''}`}
               onClick={() => !isBusy && onToggle(satKey, isChecked, rows)}
-              title={isBusy ? 'Busy (trip)' : count ? rows.map((r) => r.personName).join(', ') : 'Click to mark yourself free'}
+              title={titleText}
             >
               <span className="cal-day-num">{day}</span>
               {isSaturdayCell && count > 0 && <span className="cal-count">{count}</span>}
@@ -136,7 +147,7 @@ function CalendarMonth({ year, month, bundleMap, byWeekend, personName, busyWeek
   );
 }
 
-export default function CalendarView({ weekends, allRows, personName, onChange, busyWeekends = new Set() }) {
+export default function CalendarView({ weekends, allRows, personName, onChange, busyWeekends = new Set(), tripsByWeekend = {} }) {
   const [toggling, setToggling] = useState(null);
   const [error, setError] = useState(null);
 
@@ -242,6 +253,7 @@ export default function CalendarView({ weekends, allRows, personName, onChange, 
             byWeekend={byWeekend}
             personName={personName}
             busyWeekends={busyWeekends}
+            tripsByWeekend={tripsByWeekend}
             onToggle={handleToggle}
           />
         ))}

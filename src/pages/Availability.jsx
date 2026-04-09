@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ID, Query } from 'appwrite';
 import { databases, DATABASE_ID, AVAILABILITY_ID, TRIPS_ID, TRIP_INTEREST_ID } from '../lib/appwrite';
-import { computeBusyWeekends } from '../lib/weekendUtils';
+import { computeBusyWeekends, getOverlappingWeekends } from '../lib/weekendUtils';
 import CalendarView from '../components/CalendarView';
 import NameSelector from '../components/NameSelector';
 import { SkeletonCalendar } from '../components/Skeleton';
@@ -57,6 +57,18 @@ export default function Availability() {
     if (!personName.trim()) return new Set();
     return computeBusyWeekends(personName.trim(), tripInterests, trips);
   }, [personName, tripInterests, trips]);
+
+  const tripsByWeekend = useMemo(() => {
+    const map = {};
+    for (const trip of trips) {
+      if (!trip.startDate) continue;
+      for (const w of getOverlappingWeekends(trip.startDate, trip.endDate)) {
+        if (!map[w]) map[w] = [];
+        map[w].push(trip.name);
+      }
+    }
+    return map;
+  }, [trips]);
 
   // Auto-populate all weekends for a person with zero availability records
   useEffect(() => {
@@ -114,6 +126,7 @@ export default function Availability() {
           personName={personName}
           onChange={setRows}
           busyWeekends={busyWeekends}
+          tripsByWeekend={tripsByWeekend}
         />
       )}
     </div>

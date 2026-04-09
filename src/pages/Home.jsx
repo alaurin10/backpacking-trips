@@ -44,7 +44,24 @@ function buildRangeSet(trips) {
   return map;
 }
 
-function MiniCalendar({ year, month, rangeSet }) {
+function buildTripNameMap(trips) {
+  const map = {};
+  trips.forEach((trip) => {
+    const start = trip.startDate;
+    const end = trip.endDate || trip.startDate;
+    let cur = new Date(start + 'T00:00:00');
+    const endDate = new Date(end + 'T00:00:00');
+    while (cur <= endDate) {
+      const ds = cur.toISOString().slice(0, 10);
+      if (!map[ds]) map[ds] = [];
+      map[ds].push(trip.name);
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+  return map;
+}
+
+function MiniCalendar({ year, month, rangeSet, tripNameMap }) {
   const cells = buildMonthCells(year, month);
   return (
     <div className="trips-mini-cal">
@@ -56,10 +73,12 @@ function MiniCalendar({ year, month, rangeSet }) {
           if (!day) return <div key={`e${i}`} className="trips-cal-cell trips-cal-empty" />;
           const ds = toDateStr(year, month, day);
           const mark = rangeSet[ds];
+          const names = tripNameMap[ds];
           return (
             <div
               key={day}
               className={`trips-cal-cell${mark === 'start' ? ' trips-cal-start' : mark === 'range' ? ' trips-cal-range' : ''}`}
+              title={names?.length ? names.join(', ') : undefined}
             >
               {day}
             </div>
@@ -77,6 +96,7 @@ export default function Home() {
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
+  const [showCalendars, setShowCalendars] = useState(false);
 
   useDocumentTitle('Trips');
 
@@ -167,6 +187,9 @@ export default function Home() {
               <option value="name">Sort: Name</option>
               <option value="distance">Sort: Distance</option>
             </select>
+            <button className="cal-toggle" onClick={() => setShowCalendars((s) => !s)}>
+              {showCalendars ? 'Hide calendars' : 'Show calendars'}
+            </button>
           </div>
 
           {filtered.length !== trips.length && (
@@ -183,6 +206,7 @@ export default function Home() {
                 const month = Number(monthStr) - 1;
                 const monthTrips = byMonth[key];
                 const rangeSet = buildRangeSet(monthTrips);
+                const tripNameMap = buildTripNameMap(monthTrips);
 
                 return (
                   <div key={key} className="trips-month-section">
@@ -190,7 +214,9 @@ export default function Home() {
                       {MONTH_NAMES[month]} {year}
                     </h2>
                     <div className="trips-month-body">
-                      <MiniCalendar year={year} month={month} rangeSet={rangeSet} />
+                      <div className={`trips-mini-cal-wrap${showCalendars ? ' cal-visible' : ''}`}>
+                        <MiniCalendar year={year} month={month} rangeSet={rangeSet} tripNameMap={tripNameMap} />
+                      </div>
                       <div className="trips-month-cards">
                         {monthTrips.map((trip) => {
                           const idx = cardIndex++;
