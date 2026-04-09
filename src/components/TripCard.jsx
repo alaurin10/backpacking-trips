@@ -38,8 +38,8 @@ export default function TripCard({ trip }) {
         {nights != null && (
           <span>{nights} {nights === 1 ? 'night' : 'nights'}</span>
         )}
-        {trip.groupSize && (
-          <span>{trip.groupSize} {trip.groupSize === 1 ? 'person' : 'people'}</span>
+        {trip.maxGroupSize && (
+          <span>max {trip.maxGroupSize}</span>
         )}
         {trip.distanceMiles && <span>{trip.distanceMiles} mi</span>}
         {trip.elevationFeet && <span>{trip.elevationFeet.toLocaleString()} ft gain</span>}

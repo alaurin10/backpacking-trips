@@ -26,5 +26,11 @@ export function usePeople() {
     return doc;
   }
 
-  return { people, loading, error, addPerson };
+  async function removePerson(id) {
+    if (!PEOPLE_ID) throw new Error('People collection not configured.');
+    await databases.deleteDocument(DATABASE_ID, PEOPLE_ID, id);
+    setPeople((prev) => prev.filter((p) => p.$id !== id));
+  }
+
+  return { people, loading, error, addPerson, removePerson };
 }

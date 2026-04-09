@@ -12,7 +12,7 @@ const EMPTY_FORM = {
   distanceMiles: '',
   elevationFeet: '',
   difficulty: '',
-  groupSize: '',
+  maxGroupSize: '',
   notes: '',
 };
 
@@ -64,7 +64,7 @@ export default function TripForm() {
         distanceMiles: doc.distanceMiles ?? '',
         elevationFeet: doc.elevationFeet ?? '',
         difficulty: doc.difficulty ?? '',
-        groupSize: doc.groupSize ?? '',
+        maxGroupSize: doc.maxGroupSize ?? '',
         notes: doc.notes ?? '',
       });
       setCampsites(doc.campsites ?? []);
@@ -94,7 +94,7 @@ export default function TripForm() {
       distanceMiles: form.distanceMiles !== '' ? parseFloat(form.distanceMiles) : null,
       elevationFeet: form.elevationFeet !== '' ? parseFloat(form.elevationFeet) : null,
       difficulty: form.difficulty || null,
-      groupSize: form.groupSize !== '' ? parseInt(form.groupSize, 10) : null,
+      maxGroupSize: form.maxGroupSize !== '' ? parseInt(form.maxGroupSize, 10) : null,
       campsites: campsites.filter((s) => s.trim()),
       notes: form.notes.trim() || null,
     };
@@ -181,14 +181,14 @@ export default function TripForm() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="groupSize">Group Size</label>
+            <label htmlFor="maxGroupSize">Max Group Size</label>
             <input
-              id="groupSize"
-              name="groupSize"
+              id="maxGroupSize"
+              name="maxGroupSize"
               type="number"
               min="1"
               step="1"
-              value={form.groupSize}
+              value={form.maxGroupSize}
               onChange={handleChange}
               placeholder="e.g. 4"
             />

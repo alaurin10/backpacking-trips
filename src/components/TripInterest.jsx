@@ -21,13 +21,14 @@ function isUpcoming(satIso) {
   return new Date(satIso + 'T00:00:00') >= today;
 }
 
-export default function TripInterest({ tripId }) {
+export default function TripInterest({ tripId, maxGroupSize }) {
   const [personName, setPersonName] = useState(() => localStorage.getItem('bp_name') || '');
   const [signups, setSignups] = useState([]);
   const [availability, setAvailability] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [suggestionPage, setSuggestionPage] = useState(0);
 
   useEffect(() => {
     if (!TRIP_INTEREST_ID) {
@@ -107,12 +108,17 @@ export default function TripInterest({ tripId }) {
     }
     return Object.entries(weekendMap)
       .map(([weekend, names]) => ({ weekend, names, count: names.length }))
-      .sort((a, b) => b.count - a.count || a.weekend.localeCompare(b.weekend))
-      .slice(0, 5);
+      .sort((a, b) => b.count - a.count || a.weekend.localeCompare(b.weekend));
   }
 
   const suggestions = getDateSuggestions();
   const total = signedUpNames.length;
+  const overCapacity = maxGroupSize != null && total > maxGroupSize;
+  const atCapacity = maxGroupSize != null && total >= maxGroupSize && !isSignedUp;
+
+  const PAGE_SIZE = 5;
+  const totalPages = Math.ceil(suggestions.length / PAGE_SIZE);
+  const pagedSuggestions = suggestions.slice(suggestionPage * PAGE_SIZE, (suggestionPage + 1) * PAGE_SIZE);
 
   if (loading) return <div className="status-msg-sm">Loading interest...</div>;
 
@@ -120,7 +126,14 @@ export default function TripInterest({ tripId }) {
     <div className="detail-section">
       <h2 className="section-title">
         Interested{total > 0 && <span className="interest-count">{total}</span>}
+        {maxGroupSize != null && <span className="interest-capacity"> / {maxGroupSize} max</span>}
       </h2>
+
+      {overCapacity && (
+        <div className="alert alert-error">
+          Group is over capacity — {total} interested, max {maxGroupSize}.
+        </div>
+      )}
 
       <div className="interest-name-bar">
         <label>Your name:</label>
@@ -128,7 +141,8 @@ export default function TripInterest({ tripId }) {
         <button
           className={`btn ${isSignedUp ? 'btn-secondary' : 'btn-primary'}`}
           onClick={handleToggle}
-          disabled={saving}
+          disabled={saving || atCapacity}
+          title={atCapacity ? `Trip is full (max ${maxGroupSize})` : undefined}
         >
           {saving ? '...' : isSignedUp ? 'Remove me' : "I'm interested"}
         </button>
@@ -163,17 +177,41 @@ export default function TripInterest({ tripId }) {
             </p>
           ) : (
             <div className="best-list">
-              {suggestions.map(({ weekend, names, count }, i) => (
-                <div
-                  key={weekend}
-                  className={`best-item${i < 3 ? ` rank-${i + 1}` : ''}`}
-                >
-                  <span className="best-rank">#{i + 1}</span>
-                  <span className="best-date">{formatWeekendRange(weekend)}</span>
-                  <span className="best-count">{count}/{total} free</span>
-                  <span className="best-names">{names.join(', ')}</span>
+              {pagedSuggestions.map(({ weekend, names, count }, i) => {
+                const globalIndex = suggestionPage * PAGE_SIZE + i;
+                return (
+                  <div
+                    key={weekend}
+                    className={`best-item${globalIndex < 3 ? ` rank-${globalIndex + 1}` : ''}`}
+                  >
+                    <span className="best-rank">#{globalIndex + 1}</span>
+                    <span className="best-date">{formatWeekendRange(weekend)}</span>
+                    <span className="best-count">{count}/{total} free</span>
+                    <span className="best-names">{names.join(', ')}</span>
+                  </div>
+                );
+              })}
+              {totalPages > 1 && (
+                <div className="suggestions-pagination">
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setSuggestionPage((p) => p - 1)}
+                    disabled={suggestionPage === 0}
+                  >
+                    ← Prev
+                  </button>
+                  <span className="suggestions-page-label">
+                    {suggestionPage + 1} / {totalPages}
+                  </span>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setSuggestionPage((p) => p + 1)}
+                    disabled={suggestionPage >= totalPages - 1}
+                  >
+                    Next →
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

@@ -124,10 +124,8 @@ export default function TripDetail() {
         {trip.nights > 0 && (
           <span className="meta-item">{trip.nights} {trip.nights === 1 ? 'night' : 'nights'}</span>
         )}
-        {trip.groupSize && (
-          <span className="meta-item">
-            {trip.groupSize} {trip.groupSize === 1 ? 'person' : 'people'}
-          </span>
+        {trip.maxGroupSize && (
+          <span className="meta-item">max {trip.maxGroupSize}</span>
         )}
         {trip.distanceMiles && (
           <span className="meta-item">{trip.distanceMiles} miles</span>
@@ -158,7 +156,7 @@ export default function TripDetail() {
         </div>
       )}
 
-      <TripInterest tripId={id} />
+      <TripInterest tripId={id} maxGroupSize={trip.maxGroupSize ?? null} />
 
       <div className="detail-section">
         <h2 className="section-title">Documents</h2>
