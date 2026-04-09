@@ -24,7 +24,7 @@ function formatDateRange(start, end) {
   return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
-export default function TripCard({ trip }) {
+export default function TripCard({ trip, style }) {
   const nights = trip.nights ?? null;
   const campsites = trip.campsites ?? [];
 
@@ -40,7 +40,7 @@ export default function TripCard({ trip }) {
   const hasCampsites = campsites.length > 0;
 
   return (
-    <Link to={`/trips/${trip.$id}`} className="trip-card">
+    <Link to={`/trips/${trip.$id}`} className="trip-card" style={style}>
       <div className="trip-card-top">
         <div className="trip-card-header">
           <h2 className="trip-card-name">{trip.name}</h2>

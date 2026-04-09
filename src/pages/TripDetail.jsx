@@ -5,6 +5,12 @@ import { Query } from 'appwrite';
 import DocumentUpload from '../components/DocumentUpload';
 import TripInterest from '../components/TripInterest';
 import RouteMap from '../components/RouteMap';
+import ConfirmDialog from '../components/ConfirmDialog';
+import PackingList from '../components/PackingList';
+import TripComments from '../components/TripComments';
+import { SkeletonDetail } from '../components/Skeleton';
+import { useToast } from '../context/ToastContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 const DIFFICULTY_LABELS = { easy: 'Easy', moderate: 'Moderate', hard: 'Hard' };
 
@@ -36,10 +42,11 @@ function getFileType(fileName) {
 function DocViewer({ doc, onDelete }) {
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const type = getFileType(doc.fileName);
 
   async function handleDelete() {
-    if (!confirm(`Delete "${doc.fileName}"?`)) return;
+    setConfirmOpen(false);
     setDeleting(true);
     await onDelete(doc);
     setDeleting(false);
@@ -56,7 +63,7 @@ function DocViewer({ doc, onDelete }) {
           <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="doc-download">
             Open ↗
           </a>
-          <button className="doc-delete" onClick={handleDelete} disabled={deleting} title="Delete file">
+          <button className="doc-delete" onClick={() => setConfirmOpen(true)} disabled={deleting} title="Delete file">
             {deleting ? '…' : '×'}
           </button>
         </div>
@@ -83,6 +90,14 @@ function DocViewer({ doc, onDelete }) {
           )}
         </div>
       )}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete file"
+        message={`Delete "${doc.fileName}"?`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }
@@ -90,12 +105,17 @@ function DocViewer({ doc, onDelete }) {
 export default function TripDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const showToast = useToast();
 
   const [trip, setTrip] = useState(null);
   const [docs, setDocs] = useState([]);
   const [activeGpxUrl, setActiveGpxUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmGpx, setConfirmGpx] = useState(null);
+
+  useDocumentTitle(trip?.name || 'Trip');
 
   useEffect(() => {
     Promise.all([
@@ -123,18 +143,27 @@ export default function TripDetail() {
         const remaining = docs.filter((d) => d.$id !== doc.$id && d.fileName.endsWith('.gpx'));
         setActiveGpxUrl(remaining[0]?.fileUrl ?? null);
       }
+      showToast('File deleted');
     } catch (err) {
       setError(err.message);
     }
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete "${trip.name}"? This cannot be undone.`)) return;
+    setConfirmDelete(false);
     await databases.deleteDocument(DATABASE_ID, TRIPS_ID, id);
+    showToast('Trip deleted');
     navigate('/');
   }
 
-  if (loading) return <div className="status-msg">Loading...</div>;
+  function handleShare() {
+    navigator.clipboard.writeText(window.location.href).then(
+      () => showToast('Link copied!'),
+      () => showToast('Failed to copy link', 'error')
+    );
+  }
+
+  if (loading) return <SkeletonDetail />;
   if (error) return <div className="status-msg error">Error: {error}</div>;
   if (!trip) return <div className="status-msg">Trip not found.</div>;
 
@@ -161,8 +190,9 @@ export default function TripDetail() {
           {trip.location && <p className="detail-location">{trip.location}</p>}
         </div>
         <div className="detail-actions">
+          <button onClick={handleShare} className="btn btn-secondary btn-sm">Share</button>
           <Link to={`/trips/${id}/edit`} className="btn btn-secondary">Edit</Link>
-          <button onClick={handleDelete} className="btn btn-danger">Delete</button>
+          <button onClick={() => setConfirmDelete(true)} className="btn btn-danger">Delete</button>
         </div>
       </div>
 
@@ -235,10 +265,7 @@ export default function TripDetail() {
                     <button
                       className="doc-delete"
                       title="Remove GPX file"
-                      onClick={async () => {
-                        if (!confirm(`Delete "${activeDoc.fileName}"?`)) return;
-                        await handleDeleteDoc(activeDoc);
-                      }}
+                      onClick={() => setConfirmGpx(activeDoc)}
                     >
                       ×
                     </button>
@@ -250,6 +277,10 @@ export default function TripDetail() {
               <RouteMap gpxUrl={activeGpxUrl} />
             ) : (
               <div className="route-map-placeholder">
+                <svg className="empty-state-icon-sm" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M16 3C11.58 3 8 6.58 8 11c0 6 8 18 8 18s8-12 8-18c0-4.42-3.58-8-8-8z" fill="var(--green-light)" stroke="var(--green)" strokeWidth="1.5"/>
+                  <circle cx="16" cy="11" r="3" fill="var(--green)"/>
+                </svg>
                 <span>No route uploaded yet.</span>
                 <span>Upload a .gpx file below to display the route on a map.</span>
               </div>
@@ -272,7 +303,13 @@ export default function TripDetail() {
       <div className="detail-section">
         <h2 className="section-title">Documents</h2>
         {docs.filter((d) => !d.fileName.endsWith('.gpx')).length === 0 ? (
-          <p className="status-msg-sm">No documents uploaded yet.</p>
+          <div className="empty-state-inline">
+            <svg className="empty-state-icon-sm" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="3" width="20" height="26" rx="2" fill="var(--green-light)" stroke="var(--green)" strokeWidth="1.5"/>
+              <path d="M11 10h10M11 15h10M11 20h6" stroke="var(--green)" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+            <span>No documents uploaded yet.</span>
+          </div>
         ) : (
           <div className="doc-list">
             {docs.filter((d) => !d.fileName.endsWith('.gpx')).map((doc) => (
@@ -280,8 +317,29 @@ export default function TripDetail() {
             ))}
           </div>
         )}
-        <DocumentUpload tripId={id} onUploaded={(doc) => setDocs((prev) => [...prev, doc])} />
+        <DocumentUpload tripId={id} onUploaded={(doc) => { setDocs((prev) => [...prev, doc]); showToast('File uploaded'); }} />
       </div>
+
+      <PackingList tripId={id} />
+
+      <TripComments tripId={id} />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete trip"
+        message={`Delete "${trip.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
+      <ConfirmDialog
+        open={Boolean(confirmGpx)}
+        title="Delete GPX file"
+        message={confirmGpx ? `Delete "${confirmGpx.fileName}"?` : ''}
+        confirmLabel="Delete"
+        onConfirm={async () => { const doc = confirmGpx; setConfirmGpx(null); await handleDeleteDoc(doc); }}
+        onCancel={() => setConfirmGpx(null)}
+      />
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { databases, DATABASE_ID, AVAILABILITY_ID, TRIPS_ID, TRIP_INTEREST_ID } f
 import { computeBusyWeekends } from '../lib/weekendUtils';
 import CalendarView from '../components/CalendarView';
 import NameSelector from '../components/NameSelector';
+import { SkeletonCalendar } from '../components/Skeleton';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 // April (3) is excluded — 0-indexed
 const EXCLUDED_MONTHS = new Set([3]);
@@ -34,6 +36,8 @@ export default function Availability() {
   const [loading, setLoading] = useState(true);
   const [populating, setPopulating] = useState(false);
   const populatedRef = useRef(new Set());
+
+  useDocumentTitle('Availability');
 
   useEffect(() => {
     Promise.all([
@@ -98,7 +102,11 @@ export default function Availability() {
       </div>
 
       {loading || populating ? (
-        <div className="status-msg">{populating ? 'Setting up your availability...' : 'Loading...'}</div>
+        populating ? (
+          <div className="status-msg">Setting up your availability...</div>
+        ) : (
+          <SkeletonCalendar />
+        )
       ) : (
         <CalendarView
           weekends={WEEKENDS}

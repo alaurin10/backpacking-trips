@@ -3,12 +3,16 @@ import { Link } from 'react-router-dom';
 import { databases, DATABASE_ID, TRIPS_ID } from '../lib/appwrite';
 import { Query } from 'appwrite';
 import TripCard from '../components/TripCard';
+import { SkeletonTripGrid } from '../components/Skeleton';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December',
 ];
 const DAY_HEADERS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+const DIFFICULTIES = ['all', 'easy', 'moderate', 'hard'];
+const DIFFICULTY_LABELS_FILTER = { all: 'All', easy: 'Easy', moderate: 'Moderate', hard: 'Hard' };
 
 function buildMonthCells(year, month) {
   const firstDow = new Date(year, month, 1).getDay();
@@ -70,6 +74,11 @@ export default function Home() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
+
+  useDocumentTitle('Trips');
 
   useEffect(() => {
     databases
@@ -79,11 +88,29 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="status-msg">Loading trips...</div>;
   if (error) return <div className="status-msg error">Error: {error}</div>;
 
-  const dated = trips.filter((t) => t.startDate);
-  const undated = trips.filter((t) => !t.startDate);
+  // Filter
+  const searchLower = search.toLowerCase();
+  const filtered = trips.filter((t) => {
+    if (difficultyFilter !== 'all' && t.difficulty !== difficultyFilter) return false;
+    if (search && !(t.name.toLowerCase().includes(searchLower) || (t.location || '').toLowerCase().includes(searchLower))) return false;
+    return true;
+  });
+
+  // Sort
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+    if (sortBy === 'distance') return (b.distanceMiles || 0) - (a.distanceMiles || 0);
+    // default: date ascending, undated last
+    if (!a.startDate && !b.startDate) return 0;
+    if (!a.startDate) return 1;
+    if (!b.startDate) return -1;
+    return a.startDate.localeCompare(b.startDate);
+  });
+
+  const dated = sorted.filter((t) => t.startDate);
+  const undated = sorted.filter((t) => !t.startDate);
 
   const byMonth = {};
   dated.forEach((trip) => {
@@ -93,6 +120,7 @@ export default function Home() {
   });
 
   const monthKeys = Object.keys(byMonth).sort();
+  let cardIndex = 0;
 
   return (
     <div>
@@ -101,43 +129,91 @@ export default function Home() {
         <Link to="/trips/new" className="btn btn-primary">+ Add Trip</Link>
       </div>
 
-      {trips.length === 0 ? (
-        <p className="status-msg">No trips yet. Add one to get started!</p>
+      {loading ? (
+        <SkeletonTripGrid />
+      ) : trips.length === 0 ? (
+        <div className="empty-state">
+          <svg className="empty-state-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M24 4L6 40h36L24 4z" fill="var(--green-light)" stroke="var(--green)" strokeWidth="2" strokeLinejoin="round"/>
+            <path d="M16 40l8-16 8 16" fill="var(--green)" opacity="0.3"/>
+            <path d="M10 40l6-12 6 12" fill="var(--green)" opacity="0.2"/>
+          </svg>
+          <p className="empty-state-text">No trips yet</p>
+          <Link to="/trips/new" className="btn btn-primary">Plan your first trip</Link>
+        </div>
       ) : (
         <>
-          {monthKeys.map((key) => {
-            const [yearStr, monthStr] = key.split('-');
-            const year = Number(yearStr);
-            const month = Number(monthStr) - 1; // 0-indexed for Date
-            const monthTrips = byMonth[key];
-            const rangeSet = buildRangeSet(monthTrips);
+          <div className="filter-bar">
+            <input
+              type="text"
+              className="filter-input"
+              placeholder="Search trips..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <div className="filter-pills">
+              {DIFFICULTIES.map((d) => (
+                <button
+                  key={d}
+                  className={`filter-pill${difficultyFilter === d ? ' filter-pill-active' : ''}`}
+                  onClick={() => setDifficultyFilter(d)}
+                >
+                  {DIFFICULTY_LABELS_FILTER[d]}
+                </button>
+              ))}
+            </div>
+            <select className="filter-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="date">Sort: Date</option>
+              <option value="name">Sort: Name</option>
+              <option value="distance">Sort: Distance</option>
+            </select>
+          </div>
 
-            return (
-              <div key={key} className="trips-month-section">
-                <h2 className="trips-month-title">
-                  {MONTH_NAMES[month]} {year}
-                </h2>
-                <div className="trips-month-body">
-                  <MiniCalendar year={year} month={month} rangeSet={rangeSet} />
-                  <div className="trips-month-cards">
-                    {monthTrips.map((trip) => (
-                      <TripCard key={trip.$id} trip={trip} />
-                    ))}
+          {filtered.length !== trips.length && (
+            <p className="filter-count">Showing {filtered.length} of {trips.length} trips</p>
+          )}
+
+          {sorted.length === 0 ? (
+            <p className="status-msg">No trips match your filters.</p>
+          ) : (
+            <>
+              {monthKeys.map((key) => {
+                const [yearStr, monthStr] = key.split('-');
+                const year = Number(yearStr);
+                const month = Number(monthStr) - 1;
+                const monthTrips = byMonth[key];
+                const rangeSet = buildRangeSet(monthTrips);
+
+                return (
+                  <div key={key} className="trips-month-section">
+                    <h2 className="trips-month-title">
+                      {MONTH_NAMES[month]} {year}
+                    </h2>
+                    <div className="trips-month-body">
+                      <MiniCalendar year={year} month={month} rangeSet={rangeSet} />
+                      <div className="trips-month-cards">
+                        {monthTrips.map((trip) => {
+                          const idx = cardIndex++;
+                          return <TripCard key={trip.$id} trip={trip} style={{ animationDelay: `${idx * 0.05}s` }} />;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {undated.length > 0 && (
+                <div className="trips-month-section trips-undated-section">
+                  <h2 className="trips-month-title trips-undated-title">No Date Set</h2>
+                  <div className="trip-grid">
+                    {undated.map((trip) => {
+                      const idx = cardIndex++;
+                      return <TripCard key={trip.$id} trip={trip} style={{ animationDelay: `${idx * 0.05}s` }} />;
+                    })}
                   </div>
                 </div>
-              </div>
-            );
-          })}
-
-          {undated.length > 0 && (
-            <div className="trips-month-section trips-undated-section">
-              <h2 className="trips-month-title trips-undated-title">No Date Set</h2>
-              <div className="trip-grid">
-                {undated.map((trip) => (
-                  <TripCard key={trip.$id} trip={trip} />
-                ))}
-              </div>
-            </div>
+              )}
+            </>
           )}
         </>
       )}
