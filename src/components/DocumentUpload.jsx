@@ -14,7 +14,7 @@ export default function DocumentUpload({ tripId, onUploaded }) {
 
     try {
       const uploaded = await storage.createFile(BUCKET_ID, ID.unique(), file);
-      const fileUrl = storage.getFileView(BUCKET_ID, uploaded.$id).href;
+      const fileUrl = `${import.meta.env.VITE_APPWRITE_ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${uploaded.$id}/view?project=${import.meta.env.VITE_APPWRITE_PROJECT_ID}`;
 
       const doc = await databases.createDocument(DATABASE_ID, DOCUMENTS_ID, ID.unique(), {
         tripId,

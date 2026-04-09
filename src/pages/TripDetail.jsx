@@ -6,6 +6,54 @@ import DocumentUpload from '../components/DocumentUpload';
 
 const DIFFICULTY_LABELS = { easy: 'Easy', moderate: 'Moderate', hard: 'Hard' };
 
+function getFileType(fileName) {
+  const ext = fileName.split('.').pop().toLowerCase();
+  if (ext === 'pdf') return 'pdf';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
+  return 'other';
+}
+
+function DocViewer({ doc }) {
+  const [open, setOpen] = useState(false);
+  const type = getFileType(doc.fileName);
+
+  return (
+    <div className="doc-viewer">
+      <div className="doc-viewer-header">
+        <button className="doc-toggle" onClick={() => setOpen((o) => !o)}>
+          <span className="doc-toggle-icon">{open ? '▾' : '▸'}</span>
+          <span className="doc-link">{doc.fileName}</span>
+        </button>
+        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="doc-download">
+          Open ↗
+        </a>
+      </div>
+      {open && (
+        <div className="doc-preview">
+          {type === 'pdf' && (
+            <iframe
+              src={doc.fileUrl}
+              title={doc.fileName}
+              className="doc-iframe"
+            />
+          )}
+          {type === 'image' && (
+            <img src={doc.fileUrl} alt={doc.fileName} className="doc-img" />
+          )}
+          {type === 'other' && (
+            <p className="doc-no-preview">
+              No preview available.{' '}
+              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="doc-link">
+                Download file
+              </a>
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function formatDate(iso) {
   if (!iso) return '';
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
@@ -92,15 +140,11 @@ export default function TripDetail() {
         {docs.length === 0 ? (
           <p className="status-msg-sm">No documents uploaded yet.</p>
         ) : (
-          <ul className="doc-list">
+          <div className="doc-list">
             {docs.map((doc) => (
-              <li key={doc.$id} className="doc-item">
-                <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="doc-link">
-                  {doc.fileName}
-                </a>
-              </li>
+              <DocViewer key={doc.$id} doc={doc} />
             ))}
-          </ul>
+          </div>
         )}
         <DocumentUpload tripId={id} onUploaded={(doc) => setDocs((prev) => [...prev, doc])} />
       </div>
