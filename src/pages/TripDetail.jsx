@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { databases, DATABASE_ID, TRIPS_ID, DOCUMENTS_ID } from '../lib/appwrite';
+import { databases, storage, DATABASE_ID, TRIPS_ID, DOCUMENTS_ID, BUCKET_ID } from '../lib/appwrite';
 import { Query } from 'appwrite';
 import DocumentUpload from '../components/DocumentUpload';
 import TripInterest from '../components/TripInterest';
@@ -33,9 +33,17 @@ function getFileType(fileName) {
   return 'other';
 }
 
-function DocViewer({ doc }) {
+function DocViewer({ doc, onDelete }) {
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const type = getFileType(doc.fileName);
+
+  async function handleDelete() {
+    if (!confirm(`Delete "${doc.fileName}"?`)) return;
+    setDeleting(true);
+    await onDelete(doc);
+    setDeleting(false);
+  }
 
   return (
     <div className="doc-viewer">
@@ -44,9 +52,14 @@ function DocViewer({ doc }) {
           <span className="doc-toggle-icon">{open ? '▾' : '▸'}</span>
           <span className="doc-link">{doc.fileName}</span>
         </button>
-        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="doc-download">
-          Open ↗
-        </a>
+        <div className="doc-viewer-actions">
+          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="doc-download">
+            Open ↗
+          </a>
+          <button className="doc-delete" onClick={handleDelete} disabled={deleting} title="Delete file">
+            {deleting ? '…' : '×'}
+          </button>
+        </div>
       </div>
       {open && (
         <div className="doc-preview">
@@ -98,6 +111,22 @@ export default function TripDetail() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function handleDeleteDoc(doc) {
+    try {
+      await Promise.all([
+        storage.deleteFile(BUCKET_ID, doc.fileId),
+        databases.deleteDocument(DATABASE_ID, DOCUMENTS_ID, doc.$id),
+      ]);
+      setDocs((prev) => prev.filter((d) => d.$id !== doc.$id));
+      if (activeGpxUrl === doc.fileUrl) {
+        const remaining = docs.filter((d) => d.$id !== doc.$id && d.fileName.endsWith('.gpx'));
+        setActiveGpxUrl(remaining[0]?.fileUrl ?? null);
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   async function handleDelete() {
     if (!confirm(`Delete "${trip.name}"? This cannot be undone.`)) return;
@@ -176,21 +205,38 @@ export default function TripDetail() {
         return (
           <div className="detail-section">
             <h2 className="section-title">Route</h2>
-            {gpxDocs.length > 1 && (
-              <div className="route-gpx-selector">
-                <label htmlFor="gpx-select" className="route-gpx-label">GPX file</label>
-                <select
-                  id="gpx-select"
-                  className="route-gpx-select"
-                  value={activeGpxUrl ?? ''}
-                  onChange={(e) => setActiveGpxUrl(e.target.value)}
-                >
-                  {gpxDocs.map((d) => (
-                    <option key={d.$id} value={d.fileUrl}>{d.fileName}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {activeGpxUrl && (() => {
+              const activeDoc = gpxDocs.find((d) => d.fileUrl === activeGpxUrl);
+              return (
+                <div className="route-gpx-bar">
+                  {gpxDocs.length > 1 ? (
+                    <select
+                      className="route-gpx-select"
+                      value={activeGpxUrl}
+                      onChange={(e) => setActiveGpxUrl(e.target.value)}
+                    >
+                      {gpxDocs.map((d) => (
+                        <option key={d.$id} value={d.fileUrl}>{d.fileName}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="route-gpx-name">{activeDoc?.fileName}</span>
+                  )}
+                  {activeDoc && (
+                    <button
+                      className="doc-delete"
+                      title="Remove GPX file"
+                      onClick={async () => {
+                        if (!confirm(`Delete "${activeDoc.fileName}"?`)) return;
+                        await handleDeleteDoc(activeDoc);
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
             {activeGpxUrl ? (
               <RouteMap gpxUrl={activeGpxUrl} />
             ) : (
@@ -221,7 +267,7 @@ export default function TripDetail() {
         ) : (
           <div className="doc-list">
             {docs.filter((d) => !d.fileName.endsWith('.gpx')).map((doc) => (
-              <DocViewer key={doc.$id} doc={doc} />
+              <DocViewer key={doc.$id} doc={doc} onDelete={handleDeleteDoc} />
             ))}
           </div>
         )}
