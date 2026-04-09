@@ -10,7 +10,12 @@ function isoFromDate(d) {
 
 // Map any date that belongs to a bundle → the Saturday ISO (the bundle key).
 // Standard bundle: Saturday + Sunday.
-// Extended bundle: if Saturday is July 4, also include Friday July 3.
+// Extended: Friday July 3 when Saturday is July 4.
+// Extended: Monday Memorial Day (last Mon of May) when Sunday is the day before.
+function isMemorialDay(d) {
+  return d.getMonth() === 4 && d.getDay() === 1 && d.getDate() >= 25;
+}
+
 function buildBundleMap(saturdays) {
   const map = {};
   for (const satIso of saturdays) {
@@ -29,6 +34,13 @@ function buildBundleMap(saturdays) {
     if (friIso.slice(5, 10) === '07-03') {
       map[friIso] = satIso;
     }
+
+    // Include Memorial Day (last Monday of May)
+    const mon = new Date(sat);
+    mon.setDate(mon.getDate() + 2);
+    if (isMemorialDay(mon)) {
+      map[isoFromDate(mon)] = satIso;
+    }
   }
   return map;
 }
@@ -42,12 +54,20 @@ function formatWeekend(satIso) {
   fri.setDate(fri.getDate() - 1);
   const isJul3Weekend = fri.getMonth() === 6 && fri.getDate() === 3;
 
+  const mon = new Date(sat);
+  mon.setDate(mon.getDate() + 2);
+  const isMemDay = isMemorialDay(mon);
+
   if (isJul3Weekend) {
     const friStr = fri.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return `${friStr}–${sun.getDate()}, ${sat.getFullYear()}`;
   }
 
   const satStr = sat.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (isMemDay) {
+    return `${satStr}–${mon.getDate()}, ${sat.getFullYear()}`;
+  }
+
   return `${satStr}–${sun.getDate()}, ${sat.getFullYear()}`;
 }
 

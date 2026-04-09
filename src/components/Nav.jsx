@@ -6,7 +6,7 @@ export default function Nav() {
   return (
     <nav className="nav">
       <Link to="/" className="nav-brand">
-        Backpacking Planner
+        Cascade Concrete Planner
       </Link>
       <div className="nav-links">
         <Link to="/" className={location.pathname === '/' ? 'nav-link active' : 'nav-link'}>

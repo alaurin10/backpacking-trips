@@ -4,6 +4,10 @@ import { databases, DATABASE_ID, AVAILABILITY_ID, TRIP_INTEREST_ID, TRIPS_ID } f
 import { computeBusyWeekends } from '../lib/weekendUtils';
 import NameSelector from './NameSelector';
 
+function isMemorialDay(d) {
+  return d.getMonth() === 4 && d.getDay() === 1 && d.getDate() >= 25;
+}
+
 function formatWeekendRange(satIso) {
   const sat = new Date(satIso + 'T00:00:00');
   const sun = new Date(sat);
@@ -13,7 +17,13 @@ function formatWeekendRange(satIso) {
   if (fri.getMonth() === 6 && fri.getDate() === 3) {
     return `${fri.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${sun.getDate()}, ${sat.getFullYear()}`;
   }
-  return `${sat.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${sun.getDate()}, ${sat.getFullYear()}`;
+  const mon = new Date(sat);
+  mon.setDate(mon.getDate() + 2);
+  const satStr = sat.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (isMemorialDay(mon)) {
+    return `${satStr}–${mon.getDate()}, ${sat.getFullYear()}`;
+  }
+  return `${satStr}–${sun.getDate()}, ${sat.getFullYear()}`;
 }
 
 function isUpcoming(satIso) {

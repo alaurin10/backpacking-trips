@@ -2,7 +2,11 @@ function isoFromDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// Find Saturday keys for weekends whose Sat/Sun days overlap with a date range
+function isMemorialDay(d) {
+  return d.getMonth() === 4 && d.getDay() === 1 && d.getDate() >= 25;
+}
+
+// Find Saturday keys for weekends whose Sat/Sun/holiday days overlap with a date range
 export function getOverlappingWeekends(startDate, endDate) {
   if (!startDate) return [];
   const start = new Date(startDate + 'T00:00:00');
@@ -17,6 +21,17 @@ export function getOverlappingWeekends(startDate, endDate) {
       const sat = new Date(d);
       sat.setDate(sat.getDate() - 1);
       weekendKeys.add(isoFromDate(sat));
+    } else if (dow === 1 && isMemorialDay(d)) {
+      const sat = new Date(d);
+      sat.setDate(sat.getDate() - 2);
+      weekendKeys.add(isoFromDate(sat));
+    } else if (dow === 5) {
+      // Friday July 3 → bundle with Saturday July 4
+      if (d.getMonth() === 6 && d.getDate() === 3) {
+        const sat = new Date(d);
+        sat.setDate(sat.getDate() + 1);
+        weekendKeys.add(isoFromDate(sat));
+      }
     }
     d.setDate(d.getDate() + 1);
   }
