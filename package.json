@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tmcw/togeojson": "^7.1.2",
+    "@vercel/analytics": "^2.0.1",
     "appwrite": "^24.1.1",
     "leaflet": "^1.9.4",
     "react": "^19.2.4",
