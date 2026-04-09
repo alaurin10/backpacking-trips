@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics';
 import Nav from './components/Nav';
 import Home from './pages/Home';
 import TripForm from './pages/TripForm';
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="/availability" element={<Availability />} />
         </Routes>
       </main>
+      <Analytics />
     </BrowserRouter>
   );
 }
