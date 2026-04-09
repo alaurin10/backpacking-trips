@@ -75,6 +75,7 @@ function CalendarMonth({ year, month, bundleMap, byWeekend, personName, busyWeek
   const title = new Date(year, month).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const firstDayOfWeek = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const hasPerson = Boolean(personName.trim());
 
   const cells = Array(firstDayOfWeek).fill(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
@@ -94,7 +95,6 @@ function CalendarMonth({ year, month, bundleMap, byWeekend, personName, busyWeek
           const isSat = (firstDayOfWeek + day - 1) % 7 === 6;
 
           if (!satKey) {
-            // Saturdays not part of any tracked bundle get a muted style
             return (
               <div key={day} className={`cal-cell${isSat ? ' cal-cell-sat-inactive' : ''}`}>
                 {day}
@@ -104,15 +104,25 @@ function CalendarMonth({ year, month, bundleMap, byWeekend, personName, busyWeek
 
           const rows = byWeekend[satKey] || [];
           const count = rows.length;
-          const isChecked = personName.trim() && rows.some((r) => r.personName === personName.trim());
+          const isChecked = hasPerson && rows.some((r) => r.personName === personName.trim());
           const isBusy = busyWeekends.has(satKey);
           const isBest = count >= 3;
           const isSaturdayCell = iso === satKey;
 
+          // Build class list: busy > checked > unavail > default
+          let stateClass = '';
+          if (isBusy) {
+            stateClass = ' cal-busy';
+          } else if (hasPerson && isChecked) {
+            stateClass = ' cal-checked';
+          } else if (hasPerson && !isChecked) {
+            stateClass = ' cal-unavail';
+          }
+
           return (
             <button
               key={day}
-              className={`cal-cell cal-cell-sat${isBusy ? ' cal-busy' : isChecked ? ' cal-checked' : ''}${isBest && !isBusy ? ' cal-best' : ''}`}
+              className={`cal-cell cal-cell-sat${stateClass}${isBest ? ' cal-best' : ''}`}
               onClick={() => !isBusy && onToggle(satKey, isChecked, rows)}
               title={isBusy ? 'Busy (trip)' : count ? rows.map((r) => r.personName).join(', ') : 'Click to mark yourself free'}
             >
@@ -207,10 +217,19 @@ export default function CalendarView({ weekends, allRows, personName, onChange, 
 
       {error && <div className="alert alert-error">{error}</div>}
       <div className="cal-legend">
-        <span className="legend-item"><span className="legend-swatch legend-available" /> You're free</span>
-        <span className="legend-item"><span className="legend-swatch legend-busy" /> Busy (trip)</span>
-        <span className="legend-item"><span className="legend-swatch legend-best" /> 3+ people free</span>
-        <span className="legend-item"><span className="legend-swatch legend-sat" /> Sat–Sun bundle (click either)</span>
+        {personName.trim() ? (
+          <>
+            <span className="legend-item"><span className="legend-swatch legend-available" /> Available</span>
+            <span className="legend-item"><span className="legend-swatch legend-unavail" /> Unavailable</span>
+            <span className="legend-item"><span className="legend-swatch legend-busy" /> Busy (trip)</span>
+            <span className="legend-item"><span className="legend-swatch legend-best-border" /> 3+ people free</span>
+          </>
+        ) : (
+          <>
+            <span className="legend-item"><span className="legend-swatch legend-tan" /> Weekend</span>
+            <span className="legend-item"><span className="legend-swatch legend-best-border" /> 3+ people free</span>
+          </>
+        )}
       </div>
 
       <div className="cal-months">
