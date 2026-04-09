@@ -198,7 +198,7 @@ export default function TripDetail() {
         </div>
       )}
 
-      <TripInterest tripId={id} maxGroupSize={trip.maxGroupSize ?? null} />
+      <TripInterest tripId={id} maxGroupSize={trip.maxGroupSize ?? null} startDate={trip.startDate} endDate={trip.endDate} />
 
       {(() => {
         const gpxDocs = docs.filter((d) => d.fileName.endsWith('.gpx'));

@@ -3,6 +3,31 @@ import { ID, Query } from 'appwrite';
 import { databases, DATABASE_ID, AVAILABILITY_ID, TRIP_INTEREST_ID } from '../lib/appwrite';
 import NameSelector from './NameSelector';
 
+function isoFromDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Find Saturday keys for weekends whose Sat/Sun days overlap with a trip date range
+function getOverlappingWeekends(startDate, endDate) {
+  if (!startDate) return [];
+  const start = new Date(startDate + 'T00:00:00');
+  const end = endDate ? new Date(endDate + 'T00:00:00') : new Date(start);
+  const weekendKeys = new Set();
+  const d = new Date(start);
+  while (d <= end) {
+    const dow = d.getDay();
+    if (dow === 6) { // Saturday
+      weekendKeys.add(isoFromDate(d));
+    } else if (dow === 0) { // Sunday
+      const sat = new Date(d);
+      sat.setDate(sat.getDate() - 1);
+      weekendKeys.add(isoFromDate(sat));
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return [...weekendKeys];
+}
+
 function formatWeekendRange(satIso) {
   const sat = new Date(satIso + 'T00:00:00');
   const sun = new Date(sat);
@@ -21,7 +46,7 @@ function isUpcoming(satIso) {
   return new Date(satIso + 'T00:00:00') >= today;
 }
 
-export default function TripInterest({ tripId, maxGroupSize }) {
+export default function TripInterest({ tripId, maxGroupSize, startDate, endDate }) {
   const [personName, setPersonName] = useState(() => localStorage.getItem('bp_name') || '');
   const [signups, setSignups] = useState([]);
   const [availability, setAvailability] = useState([]);
@@ -84,6 +109,18 @@ export default function TripInterest({ tripId, maxGroupSize }) {
           { tripId, personName: trimmedName }
         );
         setSignups((prev) => [...prev, doc]);
+
+        // Block off weekends that overlap with the trip dates
+        const overlapping = getOverlappingWeekends(startDate, endDate);
+        const toDelete = availability.filter(
+          (r) => r.personName === trimmedName && overlapping.includes(r.weekendStart)
+        );
+        if (toDelete.length > 0) {
+          await Promise.all(
+            toDelete.map((r) => databases.deleteDocument(DATABASE_ID, AVAILABILITY_ID, r.$id))
+          );
+          setAvailability((prev) => prev.filter((r) => !toDelete.some((d) => d.$id === r.$id)));
+        }
       } else if (myRecord) {
         await databases.deleteDocument(DATABASE_ID, TRIP_INTEREST_ID, myRecord.$id);
         setSignups((prev) => prev.filter((s) => s.$id !== myRecord.$id));

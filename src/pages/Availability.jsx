@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { ID } from 'appwrite';
 import { databases, DATABASE_ID, AVAILABILITY_ID } from '../lib/appwrite';
 import CalendarView from '../components/CalendarView';
 import NameSelector from '../components/NameSelector';
@@ -28,6 +29,8 @@ export default function Availability() {
   const [personName, setPersonName] = useState(() => localStorage.getItem('bp_name') || '');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [populating, setPopulating] = useState(false);
+  const populatedRef = useRef(new Set());
 
   useEffect(() => {
     databases
@@ -35,6 +38,33 @@ export default function Availability() {
       .then((res) => setRows(res.documents))
       .finally(() => setLoading(false));
   }, []);
+
+  // Auto-populate all weekends for a person with zero availability records
+  useEffect(() => {
+    if (loading || !personName.trim()) return;
+    const trimmed = personName.trim();
+    if (populatedRef.current.has(trimmed)) return;
+    populatedRef.current.add(trimmed);
+
+    const existing = rows.filter((r) => r.personName === trimmed);
+    if (existing.length > 0) return;
+
+    let cancelled = false;
+    setPopulating(true);
+    Promise.all(
+      WEEKENDS.map((w) =>
+        databases.createDocument(DATABASE_ID, AVAILABILITY_ID, ID.unique(), {
+          personName: trimmed,
+          weekendStart: w,
+        })
+      )
+    )
+      .then((docs) => { if (!cancelled) setRows((prev) => [...prev, ...docs]); })
+      .catch((err) => console.error('Auto-populate availability failed:', err))
+      .finally(() => { if (!cancelled) setPopulating(false); });
+
+    return () => { cancelled = true; };
+  }, [loading, personName, rows]);
 
   function handleNameChange(name) {
     setPersonName(name);
@@ -52,8 +82,8 @@ export default function Availability() {
         <NameSelector value={personName} onChange={handleNameChange} />
       </div>
 
-      {loading ? (
-        <div className="status-msg">Loading...</div>
+      {loading || populating ? (
+        <div className="status-msg">{populating ? 'Setting up your availability...' : 'Loading...'}</div>
       ) : (
         <CalendarView
           weekends={WEEKENDS}
