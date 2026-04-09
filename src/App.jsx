@@ -1,12 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { inject } from '@vercel/analytics/web';
 import Nav from './components/Nav';
 import Home from './pages/Home';
 import TripForm from './pages/TripForm';
 import TripDetail from './pages/TripDetail';
 import Availability from './pages/Availability';
-
-inject();
 
 export default function App() {
   return (
