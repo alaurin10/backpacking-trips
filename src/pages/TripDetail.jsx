@@ -4,6 +4,7 @@ import { databases, DATABASE_ID, TRIPS_ID, DOCUMENTS_ID } from '../lib/appwrite'
 import { Query } from 'appwrite';
 import DocumentUpload from '../components/DocumentUpload';
 import TripInterest from '../components/TripInterest';
+import RouteMap from '../components/RouteMap';
 
 const DIFFICULTY_LABELS = { easy: 'Easy', moderate: 'Moderate', hard: 'Hard' };
 
@@ -70,6 +71,7 @@ export default function TripDetail() {
 
   const [trip, setTrip] = useState(null);
   const [docs, setDocs] = useState([]);
+  const [activeGpxUrl, setActiveGpxUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -81,6 +83,8 @@ export default function TripDetail() {
       .then(([tripDoc, docsRes]) => {
         setTrip(tripDoc);
         setDocs(docsRes.documents);
+        const firstGpx = docsRes.documents.find((d) => d.fileName.endsWith('.gpx'));
+        if (firstGpx) setActiveGpxUrl(firstGpx.fileUrl);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -158,13 +162,56 @@ export default function TripDetail() {
 
       <TripInterest tripId={id} maxGroupSize={trip.maxGroupSize ?? null} />
 
+      {(() => {
+        const gpxDocs = docs.filter((d) => d.fileName.endsWith('.gpx'));
+        return (
+          <div className="detail-section">
+            <h2 className="section-title">Route</h2>
+            {gpxDocs.length > 1 && (
+              <div className="route-gpx-selector">
+                <label htmlFor="gpx-select" className="route-gpx-label">GPX file</label>
+                <select
+                  id="gpx-select"
+                  className="route-gpx-select"
+                  value={activeGpxUrl ?? ''}
+                  onChange={(e) => setActiveGpxUrl(e.target.value)}
+                >
+                  {gpxDocs.map((d) => (
+                    <option key={d.$id} value={d.fileUrl}>{d.fileName}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {activeGpxUrl ? (
+              <RouteMap gpxUrl={activeGpxUrl} />
+            ) : (
+              <div className="route-map-placeholder">
+                <span>No route uploaded yet.</span>
+                <span>Upload a .gpx file below to display the route on a map.</span>
+              </div>
+            )}
+            <div className="route-upload">
+              <DocumentUpload
+                tripId={id}
+                accept=".gpx"
+                label="+ Upload GPX"
+                onUploaded={(doc) => {
+                  setDocs((prev) => [...prev, doc]);
+                  setActiveGpxUrl(doc.fileUrl);
+                }}
+              />
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="detail-section">
         <h2 className="section-title">Documents</h2>
-        {docs.length === 0 ? (
+        {docs.filter((d) => !d.fileName.endsWith('.gpx')).length === 0 ? (
           <p className="status-msg-sm">No documents uploaded yet.</p>
         ) : (
           <div className="doc-list">
-            {docs.map((doc) => (
+            {docs.filter((d) => !d.fileName.endsWith('.gpx')).map((doc) => (
               <DocViewer key={doc.$id} doc={doc} />
             ))}
           </div>

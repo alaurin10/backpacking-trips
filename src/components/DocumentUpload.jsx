@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { storage, databases, DATABASE_ID, DOCUMENTS_ID, BUCKET_ID } from '../lib/appwrite';
 import { ID } from 'appwrite';
 
-export default function DocumentUpload({ tripId, onUploaded }) {
+export default function DocumentUpload({ tripId, onUploaded, accept = '.pdf,.jpg,.jpeg,.png,.gpx,.txt,.kml', label = '+ Upload File' }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -35,10 +35,10 @@ export default function DocumentUpload({ tripId, onUploaded }) {
   return (
     <div className="doc-upload">
       <label className="btn btn-secondary upload-btn">
-        {uploading ? 'Uploading...' : '+ Upload File'}
+        {uploading ? 'Uploading...' : label}
         <input
           type="file"
-          accept=".pdf,.jpg,.jpeg,.png,.gpx,.txt,.kml"
+          accept={accept}
           onChange={handleFileChange}
           disabled={uploading}
           style={{ display: 'none' }}
