@@ -121,6 +121,14 @@ export default function TripDetail() {
             {trip.endDate && ` – ${formatDate(trip.endDate)}`}
           </span>
         )}
+        {trip.nights > 0 && (
+          <span className="meta-item">{trip.nights} {trip.nights === 1 ? 'night' : 'nights'}</span>
+        )}
+        {trip.groupSize && (
+          <span className="meta-item">
+            {trip.groupSize} {trip.groupSize === 1 ? 'person' : 'people'}
+          </span>
+        )}
         {trip.distanceMiles && (
           <span className="meta-item">{trip.distanceMiles} miles</span>
         )}
@@ -128,6 +136,20 @@ export default function TripDetail() {
           <span className="meta-item">{trip.elevationFeet.toLocaleString()} ft gain</span>
         )}
       </div>
+
+      {trip.campsites?.length > 0 && (
+        <div className="detail-section">
+          <h2 className="section-title">Campsites</h2>
+          <ol className="campsite-list">
+            {trip.campsites.map((site, i) => (
+              <li key={i} className="campsite-list-item">
+                <span className="campsite-night-label">Night {i + 1}</span>
+                <span>{site}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       {trip.notes && (
         <div className="detail-section">

@@ -3,16 +3,20 @@ import { databases, DATABASE_ID, AVAILABILITY_ID } from '../lib/appwrite';
 import CalendarView from '../components/CalendarView';
 import NameSelector from '../components/NameSelector';
 
+// April (3) is excluded — 0-indexed
+const EXCLUDED_MONTHS = new Set([3]);
+
 function getUpcomingSaturdays(count = 26) {
   const saturdays = [];
   const today = new Date();
   const d = new Date(today);
   // Advance to next Saturday (day 6)
   d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7));
-  for (let i = 0; i < count; i++) {
-    // Use local date parts to avoid UTC offset shifting the day
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    saturdays.push(iso);
+  while (saturdays.length < count) {
+    if (!EXCLUDED_MONTHS.has(d.getMonth())) {
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      saturdays.push(iso);
+    }
     d.setDate(d.getDate() + 7);
   }
   return saturdays;

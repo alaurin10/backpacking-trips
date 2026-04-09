@@ -12,6 +12,9 @@ function formatDate(iso) {
 }
 
 export default function TripCard({ trip }) {
+  const nights = trip.nights ?? null;
+  const campsites = trip.campsites ?? [];
+
   return (
     <Link to={`/trips/${trip.$id}`} className="trip-card">
       <div className="trip-card-header">
@@ -22,7 +25,9 @@ export default function TripCard({ trip }) {
           </span>
         )}
       </div>
+
       {trip.location && <p className="trip-card-location">{trip.location}</p>}
+
       <div className="trip-card-meta">
         {trip.startDate && (
           <span>
@@ -30,9 +35,26 @@ export default function TripCard({ trip }) {
             {trip.endDate && ` – ${formatDate(trip.endDate)}`}
           </span>
         )}
+        {nights != null && (
+          <span>{nights} {nights === 1 ? 'night' : 'nights'}</span>
+        )}
+        {trip.groupSize && (
+          <span>{trip.groupSize} {trip.groupSize === 1 ? 'person' : 'people'}</span>
+        )}
         {trip.distanceMiles && <span>{trip.distanceMiles} mi</span>}
         {trip.elevationFeet && <span>{trip.elevationFeet.toLocaleString()} ft gain</span>}
       </div>
+
+      {campsites.length > 0 && (
+        <div className="trip-card-campsites">
+          {campsites.map((site, i) => (
+            <span key={i} className="campsite-pill">
+              <span className="campsite-night">N{i + 1}</span>
+              {site}
+            </span>
+          ))}
+        </div>
+      )}
     </Link>
   );
 }

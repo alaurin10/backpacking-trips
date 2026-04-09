@@ -123,13 +123,15 @@ export default function CalendarView({ weekends, allRows, personName, onChange }
     .sort((a, b) => b.count - a.count)
     .slice(0, 3);
 
+  const EXCLUDED_MONTHS = new Set([3]); // April
+
   const today = new Date();
-  const lastWeekend = weekends[weekends.length - 1];
-  const endDate = lastWeekend ? new Date(lastWeekend + 'T00:00:00') : today;
   const months = [];
   const cur = new Date(today.getFullYear(), today.getMonth(), 1);
-  while (cur <= endDate) {
-    months.push({ year: cur.getFullYear(), month: cur.getMonth() });
+  while (months.length < 6) {
+    if (!EXCLUDED_MONTHS.has(cur.getMonth())) {
+      months.push({ year: cur.getFullYear(), month: cur.getMonth() });
+    }
     cur.setMonth(cur.getMonth() + 1);
   }
 
