@@ -13,6 +13,7 @@ const EMPTY_FORM = {
   elevationFeet: '',
   difficulty: '',
   maxGroupSize: '',
+  permitLink: '',
   notes: '',
 };
 
@@ -65,6 +66,7 @@ export default function TripForm() {
         elevationFeet: doc.elevationFeet ?? '',
         difficulty: doc.difficulty ?? '',
         maxGroupSize: doc.maxGroupSize ?? '',
+        permitLink: doc.permitLink ?? '',
         notes: doc.notes ?? '',
       });
       setCampsites(doc.campsites ?? []);
@@ -96,6 +98,7 @@ export default function TripForm() {
       difficulty: form.difficulty || null,
       maxGroupSize: form.maxGroupSize !== '' ? parseInt(form.maxGroupSize, 10) : null,
       campsites: campsites.filter((s) => s.trim()),
+      permitLink: form.permitLink.trim() || null,
       notes: form.notes.trim() || null,
     };
 
@@ -251,6 +254,18 @@ export default function TripForm() {
             <option value="moderate">Moderate</option>
             <option value="hard">Hard</option>
           </select>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="permitLink">Permit / Ticket Link</label>
+          <input
+            id="permitLink"
+            name="permitLink"
+            type="url"
+            value={form.permitLink}
+            onChange={handleChange}
+            placeholder="e.g. https://recreation.gov/permits/123"
+          />
         </div>
 
         <div className="form-group">

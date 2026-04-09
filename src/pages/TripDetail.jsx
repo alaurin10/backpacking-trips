@@ -191,6 +191,15 @@ export default function TripDetail() {
         </div>
       )}
 
+      {trip.permitLink && (
+        <div className="detail-section">
+          <h2 className="section-title">Permit / Ticket</h2>
+          <a href={trip.permitLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+            Book Permit / Ticket ↗
+          </a>
+        </div>
+      )}
+
       {trip.notes && (
         <div className="detail-section">
           <h2 className="section-title">Notes</h2>
