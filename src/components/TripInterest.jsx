@@ -1,32 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ID, Query } from 'appwrite';
-import { databases, DATABASE_ID, AVAILABILITY_ID, TRIP_INTEREST_ID } from '../lib/appwrite';
+import { databases, DATABASE_ID, AVAILABILITY_ID, TRIP_INTEREST_ID, TRIPS_ID } from '../lib/appwrite';
+import { computeBusyWeekends } from '../lib/weekendUtils';
 import NameSelector from './NameSelector';
-
-function isoFromDate(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// Find Saturday keys for weekends whose Sat/Sun days overlap with a trip date range
-function getOverlappingWeekends(startDate, endDate) {
-  if (!startDate) return [];
-  const start = new Date(startDate + 'T00:00:00');
-  const end = endDate ? new Date(endDate + 'T00:00:00') : new Date(start);
-  const weekendKeys = new Set();
-  const d = new Date(start);
-  while (d <= end) {
-    const dow = d.getDay();
-    if (dow === 6) { // Saturday
-      weekendKeys.add(isoFromDate(d));
-    } else if (dow === 0) { // Sunday
-      const sat = new Date(d);
-      sat.setDate(sat.getDate() - 1);
-      weekendKeys.add(isoFromDate(sat));
-    }
-    d.setDate(d.getDate() + 1);
-  }
-  return [...weekendKeys];
-}
 
 function formatWeekendRange(satIso) {
   const sat = new Date(satIso + 'T00:00:00');
@@ -46,10 +22,12 @@ function isUpcoming(satIso) {
   return new Date(satIso + 'T00:00:00') >= today;
 }
 
-export default function TripInterest({ tripId, maxGroupSize, startDate, endDate }) {
+export default function TripInterest({ tripId, maxGroupSize, hasDate }) {
   const [personName, setPersonName] = useState(() => localStorage.getItem('bp_name') || '');
   const [signups, setSignups] = useState([]);
   const [availability, setAvailability] = useState([]);
+  const [allInterests, setAllInterests] = useState([]);
+  const [allTrips, setAllTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -63,16 +41,16 @@ export default function TripInterest({ tripId, maxGroupSize, startDate, endDate 
     let cancelled = false;
     (async () => {
       try {
-        const [signupsRes, availRes] = await Promise.all([
-          databases.listDocuments(DATABASE_ID, TRIP_INTEREST_ID, [
-            Query.equal('tripId', tripId),
-            Query.limit(100),
-          ]),
+        const [availRes, interestsRes, tripsRes] = await Promise.all([
           databases.listDocuments(DATABASE_ID, AVAILABILITY_ID, [Query.limit(500)]),
+          databases.listDocuments(DATABASE_ID, TRIP_INTEREST_ID, [Query.limit(500)]),
+          databases.listDocuments(DATABASE_ID, TRIPS_ID, [Query.limit(500)]),
         ]);
         if (!cancelled) {
-          setSignups(signupsRes.documents);
           setAvailability(availRes.documents);
+          setAllInterests(interestsRes.documents);
+          setSignups(interestsRes.documents.filter((d) => d.tripId === tripId));
+          setAllTrips(tripsRes.documents);
         }
       } catch (err) {
         if (!cancelled) setError(err.message);
@@ -109,21 +87,11 @@ export default function TripInterest({ tripId, maxGroupSize, startDate, endDate 
           { tripId, personName: trimmedName }
         );
         setSignups((prev) => [...prev, doc]);
-
-        // Block off weekends that overlap with the trip dates
-        const overlapping = getOverlappingWeekends(startDate, endDate);
-        const toDelete = availability.filter(
-          (r) => r.personName === trimmedName && overlapping.includes(r.weekendStart)
-        );
-        if (toDelete.length > 0) {
-          await Promise.all(
-            toDelete.map((r) => databases.deleteDocument(DATABASE_ID, AVAILABILITY_ID, r.$id))
-          );
-          setAvailability((prev) => prev.filter((r) => !toDelete.some((d) => d.$id === r.$id)));
-        }
+        setAllInterests((prev) => [...prev, doc]);
       } else if (myRecord) {
         await databases.deleteDocument(DATABASE_ID, TRIP_INTEREST_ID, myRecord.$id);
         setSignups((prev) => prev.filter((s) => s.$id !== myRecord.$id));
+        setAllInterests((prev) => prev.filter((s) => s.$id !== myRecord.$id));
       }
     } catch (err) {
       setError(err.message);
@@ -133,12 +101,18 @@ export default function TripInterest({ tripId, maxGroupSize, startDate, endDate 
   }
 
   // Rank upcoming weekends by how many signed-up people are free that weekend
+  // Excludes weekends where a person is busy with another trip
   function getDateSuggestions() {
     if (signedUpNames.length === 0) return [];
+    const busyMap = {};
+    for (const name of signedUpNames) {
+      busyMap[name] = computeBusyWeekends(name, allInterests, allTrips, tripId);
+    }
     const weekendMap = {};
     for (const row of availability) {
       if (!isUpcoming(row.weekendStart)) continue;
       if (signedUpNames.includes(row.personName)) {
+        if (busyMap[row.personName]?.has(row.weekendStart)) continue;
         if (!weekendMap[row.weekendStart]) weekendMap[row.weekendStart] = [];
         weekendMap[row.weekendStart].push(row.personName);
       }
@@ -200,7 +174,7 @@ export default function TripInterest({ tripId, maxGroupSize, startDate, endDate 
         </div>
       )}
 
-      {total > 0 && (
+      {total > 0 && !hasDate && (
         <div className="interest-suggestions">
           <h3 className="interest-suggestions-title">
             Date Suggestions

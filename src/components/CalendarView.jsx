@@ -51,7 +51,7 @@ function formatWeekend(satIso) {
   return `${satStr}–${sun.getDate()}, ${sat.getFullYear()}`;
 }
 
-function CalendarMonth({ year, month, bundleMap, byWeekend, personName, onToggle }) {
+function CalendarMonth({ year, month, bundleMap, byWeekend, personName, busyWeekends, onToggle }) {
   const title = new Date(year, month).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const firstDayOfWeek = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -85,15 +85,16 @@ function CalendarMonth({ year, month, bundleMap, byWeekend, personName, onToggle
           const rows = byWeekend[satKey] || [];
           const count = rows.length;
           const isChecked = personName.trim() && rows.some((r) => r.personName === personName.trim());
+          const isBusy = busyWeekends.has(satKey);
           const isBest = count >= 3;
           const isSaturdayCell = iso === satKey;
 
           return (
             <button
               key={day}
-              className={`cal-cell cal-cell-sat${isChecked ? ' cal-checked' : ''}${isBest ? ' cal-best' : ''}`}
-              onClick={() => onToggle(satKey, isChecked, rows)}
-              title={count ? rows.map((r) => r.personName).join(', ') : 'Click to mark yourself free'}
+              className={`cal-cell cal-cell-sat${isBusy ? ' cal-busy' : isChecked ? ' cal-checked' : ''}${isBest && !isBusy ? ' cal-best' : ''}`}
+              onClick={() => !isBusy && onToggle(satKey, isChecked, rows)}
+              title={isBusy ? 'Busy (trip)' : count ? rows.map((r) => r.personName).join(', ') : 'Click to mark yourself free'}
             >
               <span className="cal-day-num">{day}</span>
               {isSaturdayCell && count > 0 && <span className="cal-count">{count}</span>}
@@ -105,7 +106,7 @@ function CalendarMonth({ year, month, bundleMap, byWeekend, personName, onToggle
   );
 }
 
-export default function CalendarView({ weekends, allRows, personName, onChange }) {
+export default function CalendarView({ weekends, allRows, personName, onChange, busyWeekends = new Set() }) {
   const [toggling, setToggling] = useState(null);
   const [error, setError] = useState(null);
 
@@ -187,6 +188,7 @@ export default function CalendarView({ weekends, allRows, personName, onChange }
       {error && <div className="alert alert-error">{error}</div>}
       <div className="cal-legend">
         <span className="legend-item"><span className="legend-swatch legend-available" /> You're free</span>
+        <span className="legend-item"><span className="legend-swatch legend-busy" /> Busy (trip)</span>
         <span className="legend-item"><span className="legend-swatch legend-best" /> 3+ people free</span>
         <span className="legend-item"><span className="legend-swatch legend-sat" /> Sat–Sun bundle (click either)</span>
       </div>
@@ -200,6 +202,7 @@ export default function CalendarView({ weekends, allRows, personName, onChange }
             bundleMap={bundleMap}
             byWeekend={byWeekend}
             personName={personName}
+            busyWeekends={busyWeekends}
             onToggle={handleToggle}
           />
         ))}
