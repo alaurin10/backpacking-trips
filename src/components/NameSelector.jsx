@@ -14,6 +14,10 @@ export default function NameSelector({ value, onChange }) {
   async function handleAdd() {
     const trimmed = newName.trim();
     if (!trimmed) return;
+    if (trimmed.toLowerCase() === 'maddi') {
+      setAddError('sorry no whales allowed');
+      return;
+    }
     setSaving(true);
     setAddError(null);
     try {
