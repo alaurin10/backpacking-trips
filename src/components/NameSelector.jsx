@@ -18,6 +18,11 @@ export default function NameSelector({ value, onChange }) {
       setAddError('sorry no whales allowed');
       return;
     }
+    const whalePattern = /whale|🐋|🐳/i;
+    if (whalePattern.test(trimmed)) {
+      setAddError("that's not your name Maddi…");
+      return;
+    }
     setSaving(true);
     setAddError(null);
     try {
